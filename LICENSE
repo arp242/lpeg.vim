@@ -1,0 +1,29 @@
+Significant parts of this were copied from vis:
+
+	plugin/lexer.lua      (mostly unmodified copy)
+	plugin/filetype.lua   (mostly unmodified copy)
+
+These files are licensed under the ISC license (reproduced below). Any further
+modifications and additions from lpeg.vim are released under the same ISC
+license.
+
+lexer/* contains the LPeg based lexers used for syntax highlighting, and are
+imported from the Scintillua project licensed under the MIT license. Check the
+individual source files for more specific copyright information.
+
+─── ISC license ───
+
+	Copyright © Martin Tournoij
+	Copyright © 2014-2020 Marc André Tanner, et al.
+
+	Permission to use, copy, modify, and/or distribute this software for any
+	purpose with or without fee is hereby granted, provided that the above
+	copyright notice and this permission notice appear in all copies.
+
+	THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+	WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+	MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+	ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+	WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+	ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+	OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
