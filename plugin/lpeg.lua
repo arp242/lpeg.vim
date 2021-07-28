@@ -1,9 +1,23 @@
+if _VERSION == 'Lua 5.2' or _VERSION == 'Lua 5.1' then
+	error('lpeg.vim needs Lua 5.3 or newer')
+	return nil
+end
+
 -- Remove current directory; this will just cause problems.
 package.path = package.path:gsub('./?.lua;', '')
 
-local os     = require('os')
-local lpeg   = require('lpeg')
+-- Don't spam with huge errors; all of the runtimepath is added to package.path,
+-- and it's pages upon pages of errors if you have a bunch of plugins. Plus, you
+-- can't actualy stop this right now: https://github.com/vim/vim/issues/8649
+local ok, _ = xpcall(require, function(err)
+	print('lpeg.vim: ' .. err:sub(0, err:find('\n') - 2))
+end, 'lpeg')
+if not ok then
+	return nil
+end
 
+local lpeg     = require('lpeg')
+local os       = require('os')
 local lexer    = dofile(vim.eval('g:lpeg_path') .. '/lexer.lua')
 local ftdetect = dofile(vim.eval('g:lpeg_path') .. '/filetype.lua')
 
@@ -17,7 +31,7 @@ local ftdetect = dofile(vim.eval('g:lpeg_path') .. '/filetype.lua')
 -- html.lua – need to tweak lexer.lua to use runtimepath.
 package.path = vim.eval('g:lpeg_path') .. '/?.lua'
 
-local timeout = vim.eval('get(g:, "lpeg_timeout", 3)')
+local timeout = vim.eval('get(g:, "lpeg_timeout", 4)')
 
 
 local tmp_global_syntax = nil  -- TODO
@@ -57,7 +71,7 @@ function LPEG.Start()
 
 	LPEG.define_types(syntax)
 	vim.command('set syntax=')
-	LPEG.apply(syntax, true)
+	LPEG.apply(syntax, vim.eval('exists("g:lpeg_debug")') ~= 0, 1, vim.fn.line('$'))
 	tmp_global_syntax = syntax
 
 	for _, cmd in pairs(filetype.cmd or {}) do
@@ -97,29 +111,20 @@ function LPEG.define_types(syntax)
 end
 
 -- Parse the file and apply hightlights.
---
--- If entire_file is true the entire file will be parsed and highlighted. If
--- it's false then only the visible area will be.
-function LPEG.apply(syntax, entire_file, debug)
+function LPEG.apply(syntax, debug, first_line, last_line)
 	if syntax == nil then
-		syntax = tmp_global_syntax
+		syntax = tmp_global_syntax  -- TODO: hack
 	end
 
-	local first_line   = vim.fn.line('w0')
-	local last_line    = vim.fn.line('w$')
-	local start        = os.clock()
-	local buf          = vim.buffer()
-	local bufnr        = vim.dict({bufnr = buf.number})
-	local token_styles = syntax._TOKENSTYLES
-	local data         = ''
-	if entire_file then
-		data = table.concat(buf, '\n')
-	else
-		data = table.concat({table.unpack(buf, first_line, last_line)}, '\n')
-	end
+	local start  = os.clock()
+	local buf    = vim.buffer()
+	local bufnr  = vim.dict({bufnr = buf.number})
+	--local data   = table.concat({table.unpack(buf, first_line, last_line)}, '\n')
+	local data   = table.concat(vim.fn.getline(first_line, last_line), '\n')
 
 	local tokens, timedout = syntax:lex(data, 1, timeout)
 	if timedout then
+		error(string.format('times out after %d seconds', timeout))
 		return
 	end
 
@@ -134,39 +139,71 @@ function LPEG.apply(syntax, entire_file, debug)
 			len = tokens[i+1] - token_start
 		end
 
+		local start_line = vim.fn.byte2line(token_start)
+		local end_line   = vim.fn.byte2line(token_start + len)
 
-		local start_line  = vim.fn.byte2line(token_start)
-		local start_col   = token_start - vim.fn.line2byte(start_line) + 1
-		local end_line    = vim.fn.byte2line(token_start + len)
-		local end_col     = len + 1
+		local start_col  = token_start - vim.fn.line2byte(start_line) + 1
+		local end_col    = start_col + len + 1
+
+		-- start_line = start_line + first_line - 1
+		-- end_line   = end_line + first_line - 1
+
 		if start_line ~= end_line then
 			end_col = vim.fn.line2byte(end_line) - token_start + 1
 		end
 
-		if entire_file or (start_line >= first_line and start_line <= last_line) then
-			local name = tokens[i]
-			local style = token_styles[name]
-
-			if len > 0 then
-				if debug then
-					print(string.format('%-15s %-4s %9s - %-9s', name, 
-						string.format('(%d)', len),
-						string.format('%d:%d', start_line, start_col),
-						string.format('%d:%d', end_line, end_col)))
-				end
-
-				vim.fn.prop_add(start_line, start_col, vim.dict({
-					end_lnum = end_line,
-					end_col  = end_col,
-					type     = LPEG.prop_name(name),
-				}))
+		if debug then
+			local name  = tokens[i]
+			local style = syntax._TOKENSTYLES[name]
+			local text  = data:sub(token_start, token_start + len - 1):gsub('\n', '↪'):gsub('\t', '↦')
+			if #text > 30 then
+				text = text:sub(1, 15) .. '…' .. text:sub(-15, -1)
 			end
+
+			-- identifier      (6)    [12879]     399:14 - 399:21     |Stdout|
+			-- operator        (1)    [12885]     399:20 - 399:22     |)|
+			-- whitespace      (2)    [12886]     399:21 - 400:27702  |↪↦|
+			-- keyword         (6)    [12888]  400:-27698 - 400:-27691  |return|
+			-- whitespace      (1)    [12894]  400:-27692 - 400:-27690  | |
+			print(string.format('%-15s %-5s  %-8s %9s - %-9s  |%s|',
+				name, 
+				string.format('(%d)', len),
+				string.format('[%d]', token_start),
+				string.format('%d:%d', start_line, start_col),
+				string.format('%d:%d', end_line, end_col),
+				text
+			))
 		end
+
+		if start_col < 0 or end_col < 0 then -- TODO: this is a bug
+			goto continue
+		end
+		if len == 0 then -- TODO: needed?
+			goto continue
+		end
+
+		-- if entire_file or (start_line >= first_line and start_line <= last_line) then
+		-- if start_line <= first_line and start_line >= last_line then
+		-- 	goto continue
+		-- end
+
+		local name = tokens[i]
+		local style = syntax._TOKENSTYLES[name]
+
+		-- Don't add textprops for whitespace for now. I can't really
+		-- think of a good reason to have this.
+		if name == 'whitespace' then
+			goto continue
+		end
+
+		vim.fn.prop_add(start_line, start_col, vim.dict({
+			end_lnum = end_line,
+			end_col  = end_col,
+			type     = LPEG.prop_name(name),
+		}))
+
+		::continue::
 	end
 
-	if entire_file then
-		table.insert(timers, string.format('apply file      → %.2fms', (os.clock() - start) * 1000))
-	else
-		table.insert(timers, string.format('apply %4d-%-4d → %.2fms', first_line, last_line, (os.clock() - start) * 1000))
-	end
+	table.insert(timers, string.format('apply %4d-%-4d → %.2fms', first_line, last_line, (os.clock() - start) * 1000))
 end

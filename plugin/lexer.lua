@@ -1065,7 +1065,10 @@ function M.load(name, alt_name, cache)
   M.WHITESPACE = (alt_name or name) .. '_whitespace'
   local lexer_file = name
   if name:sub(1, 1) ~= '/' then
-	lexer_file, error = package.searchpath('lexers/' .. name, M.LEXERPATH)
+	lexer_file, err = package.searchpath('lexer/' .. name, M.LEXERPATH)
+	--if err then
+		-- TODO
+	--end
   end
 
   local ok, lexer = pcall(dofile, lexer_file or '')

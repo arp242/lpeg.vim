@@ -1,5 +1,9 @@
 vim9script
 
+# This is an internal error.  If you can reproduce it, please send in a bug report.
+# E685: Internal error: text property above deleted line not found
+# E685: Internal error: text property below deleted line not found
+
 g:lpeg_path = expand('<sfile>:p:h')
 exe 'luafile' g:lpeg_path .. '/lpeg.lua'
 
@@ -21,12 +25,13 @@ def Cmd(...splat: list<string>)
 		lua LPEG.Start()
 		augroup lpeg.vim
 			au!
-			# We can optimize this a bit more, as apply() will just re-highlight the
-			# entire buffer. Textobjects are "smart" and will move if the buffer
-			# changes, so this really isn't needed.
+			# We can optimize this a bit more, as apply() will just re-highlight
+			# the entire visible screen. Textobjects are "smart" and will move
+			# if the buffer changes, so this really isn't needed.
 			#
 			# Overal, this seems "fast enough" for now.
-			au TextChanged,TextChangedI  <buffer> lua LPEG.apply(nil, false, false)
+			au TextChanged,TextChangedI <buffer> lua LPEG.apply(nil, false,
+				\ vim.fn.line('w0'), vim.fn.line('w$'))
 		augroup end
 	elseif cmd == 'stop'
 		if !exists('b:lpeg_syntax')
@@ -49,16 +54,11 @@ def Cmd(...splat: list<string>)
 	elseif cmd == 'times'
 		lua print(LPEG.times())
 	elseif cmd == 'parse'
-		# var start = 1
-		# var stop  = line('$')
-		# if len(args) >= 1
-		# 	start = args[1]->str2nr()
-		# endif
-		# if len(args) >= 2
-		# 	stop = args[2]->str2nr()
-		# endif
-		# lua LPEG.dbg(start, stop)
-		lua LPEG.apply(nil, false, true)
+		exe printf('lua LPEG.apply(nil, true, %d, %d)',
+			(len(args) >= 1 ? args[0]->str2nr() : 1),
+			(len(args) >= 2 ? args[1]->str2nr() : line('$')))
+	else
+		Error('unknown command: %s', cmd)
 	endif
 enddef
 
@@ -67,7 +67,6 @@ def Complete(lead: string, cmdlind: string, pos: number): list<string>
 		->filter((_, v) => strpart(v, 0, len(lead)) == lead)
 enddef
 
-command -nargs=? -complete=customlist,Complete Lpeg Cmd(<f-args>)
-
+command -nargs=* -complete=customlist,Complete Lpeg Cmd(<f-args>)
 
 defcompile

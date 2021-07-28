@@ -80,13 +80,27 @@ shows the last 100 parse times:
     apply    2-34   → 2.68ms
     apply    2-34   → 2.73ms
 
-And with `parse` you can manually parse some lines and see what the LPeg library
+With `parse` you can manually parse some lines and see what the LPeg library
 makes of it:
 
-    :Lpeg parse 5       From line 5 until end
+    :Lpeg parse 1 4
+    comment         (27)   [1]            1:1 - 1:29       |//go:generate go run gen.go|
+    whitespace      (2)    [28]          1:28 - 3:3        |↪↪|
+    comment         (59)   [30]           3:1 - 3:61       |// Command uni …out characters.|
+    whitespace      (1)    [89]          3:60 - 4:2        |↪|
+    keyword         (7)    [90]           4:1 - 4:9        |package|
+    whitespace      (1)    [97]           4:8 - 4:10       | |
+    identifier      (4)    [98]           4:9 - 4:14       |main|
 
-    :Lpeg parse 5 10    From line 5 until 10 (inclusive)
+The columns are:
 
+    type   (length)   [token_start]   start_line:start_col - end_line:end_col   |text|
+
+The text is elided if it's long: … will be shown in the middle. Newlines and
+tabs are printed as `↪` and '↦`.
+
+You can ommit the end line to parse until the end, or ommit both to parse the
+entire buffer.
 
 Modifying lexers
 ----------------
@@ -178,3 +192,7 @@ have missed some discussions somewhere.
 Either way, as far as I could find there aren't really any concrete advantages
 to tree-sitter outside of "it's a structured parser", and I'm seeing a lot of
 downsides.
+
+---
+
+https://github.com/pygy/LuLPeg

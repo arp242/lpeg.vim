@@ -465,7 +465,7 @@ local filetypes = {
 
 Detect = function()
 	local buf  = vim.buffer()
-	local name = buf.name
+	local name = buf.fname
 
 	-- remove ignored suffixes from filename
 	local sanitizedfn = name
