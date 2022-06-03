@@ -903,7 +903,9 @@ if not package.searchpath then
     for part in path:gmatch('[^;]+') do
       local filename = part:gsub('%?', name)
       local f = io.open(filename, 'r')
-      if f then f:close() return filename end
+      if f then
+      f:close() return filename
+    end
       tried[#tried + 1] = ("no file '%s'"):format(filename)
     end
     return nil, table.concat(tried, '\n')
@@ -911,6 +913,7 @@ if not package.searchpath then
 end
 
 -- Adds a rule to a lexer's current ordered list of rules.
+--
 -- @param lexer The lexer to add the given rule to.
 -- @param name The name associated with this rule. It is used for other lexers
 --   to access this particular rule from the lexer's `_RULES` table. It does not
@@ -928,29 +931,41 @@ local function add_rule(lexer, id, rule)
 end
 
 -- Adds a new Scintilla style to Scintilla.
+--
 -- @param lexer The lexer to add the given style to.
 -- @param token_name The name of the token associated with this style.
 -- @param style A Scintilla style created from `style()`.
 -- @see style
 local function add_style(lexer, token_name, style)
   local num_styles = lexer._numstyles
-  if num_styles == 32 then num_styles = num_styles + 8 end -- skip predefined
-  if num_styles >= 255 then print('Too many styles defined (255 MAX)') end
+  if num_styles == 32 then  -- skip predefined
+    num_styles = num_styles + 8
+  end
+  if num_styles >= 255 then
+    print('Too many styles defined (255 MAX)')
+  end
+
   lexer._TOKENSTYLES[token_name], lexer._numstyles = num_styles, num_styles + 1
   lexer._EXTRASTYLES[token_name] = style
 end
 
 -- (Re)constructs `lexer._TOKENRULE`.
+--
 -- @param parent The parent lexer.
 local function join_tokens(lexer)
   local patterns, order = lexer._RULES, lexer._RULEORDER
   local token_rule = patterns[order[1]]
-  for i = 2, #order do token_rule = token_rule + patterns[order[i]] end
+
+  for i = 2, #order do
+    token_rule = token_rule + patterns[order[i]]
+  end
+
   lexer._TOKENRULE = token_rule + M.token(M.DEFAULT, M.any)
   return lexer._TOKENRULE
 end
 
 -- Adds a given lexer and any of its embedded lexers to a given grammar.
+--
 -- @param grammar The grammar to add the lexer to.
 -- @param lexer The lexer to add.
 local function add_lexer(grammar, lexer, token_rule)
@@ -958,7 +973,10 @@ local function add_lexer(grammar, lexer, token_rule)
   local lexer_name = lexer._NAME
   for i = 1, #lexer._CHILDREN do
     local child = lexer._CHILDREN[i]
-    if child._CHILDREN then add_lexer(grammar, child) end
+    if child._CHILDREN then
+      add_lexer(grammar, child)
+    end
+
     local child_name = child._NAME
     local rules = child._EMBEDDEDRULES[lexer_name]
     local rules_token_rule = grammar['__'..child_name] or rules.token_rule
@@ -974,6 +992,7 @@ local function add_lexer(grammar, lexer, token_rule)
 end
 
 -- (Re)constructs `lexer._GRAMMAR`.
+--
 -- @param lexer The parent lexer.
 -- @param initial_rule The name of the rule to start lexing with. The default
 --   value is `lexer._NAME`. Multilang lexers use this to start with a child
@@ -982,23 +1001,33 @@ local function build_grammar(lexer, initial_rule)
   local children = lexer._CHILDREN
   if children then
     local lexer_name = lexer._NAME
-    if not initial_rule then initial_rule = lexer_name end
+    if not initial_rule then
+      initial_rule = lexer_name
+    end
+
     local grammar = {initial_rule}
     add_lexer(grammar, lexer)
     lexer._INITIALRULE = initial_rule
     lexer._GRAMMAR = lpeg_Ct(lpeg_P(grammar))
   else
     local function tmout(_, _, t1, redrawtime_max, flag)
-	    if not redrawtime_max or os.clock() - t1 < redrawtime_max then return true end
-	    if flag then flag.timedout = true end
+      -- TODO: don't convert to seconds.
+      if not redrawtime_max or os.clock() - t1 < redrawtime_max / 1000 then
+        return true
+      end
+      if flag then
+        flag.timedout = true
+      end
     end
     local tokens = join_tokens(lexer)
+
     -- every 500 tokens (approx. a screenful), check whether we have exceeded the timeout
     lexer._GRAMMAR = lpeg_Ct((tokens * tokens^-500 * lpeg_Cmt(lpeg_Carg(1) * lpeg_Carg(2) * lpeg_Carg(3), tmout))^0)
   end
 end
 
 local string_upper = string.upper
+
 -- Default styles.
 local default = {
   'nothing', 'whitespace', 'comment', 'string', 'number', 'keyword',
@@ -1008,10 +1037,11 @@ local default = {
 for i = 1, #default do
   local name, upper_name = default[i], string_upper(default[i])
   M[upper_name] = name
-  if not M['STYLE_'..upper_name] then
-    M['STYLE_'..upper_name] = ''
+  if not M['STYLE_' .. upper_name] then
+    M['STYLE_' .. upper_name] = 'link:' .. name
   end
 end
+
 -- Predefined styles.
 local predefined = {
   'default', 'linenumber', 'bracelight', 'bracebad', 'controlchar',
@@ -1020,8 +1050,8 @@ local predefined = {
 for i = 1, #predefined do
   local name, upper_name = predefined[i], string_upper(predefined[i])
   M[upper_name] = name
-  if not M['STYLE_'..upper_name] then
-    M['STYLE_'..upper_name] = ''
+  if not M['STYLE_' .. upper_name] then
+    M['STYLE_' .. upper_name] = ''
   end
 end
 
@@ -1046,7 +1076,7 @@ end
 -- @name load
 function M.load(name, alt_name, cache)
   if cache and M.lexers[alt_name or name] then
-	  return M.lexers[alt_name or name]
+    return M.lexers[alt_name or name]
   end
 
   parent_lexer = nil -- reset
@@ -1065,34 +1095,48 @@ function M.load(name, alt_name, cache)
   M.WHITESPACE = (alt_name or name) .. '_whitespace'
   local lexer_file = name
   if name:sub(1, 1) ~= '/' then
-	lexer_file, err = package.searchpath('lexer/' .. name, M.LEXERPATH)
-	--if err then
-		-- TODO
-	--end
+    lexer_file, err = package.searchpath(name, M.LEXERPATH)
+    if err then
+      print(string.format('cannot find %s in %s', name, M.LEXERPATH))
+      return
+    end
   end
 
-  local ok, lexer = pcall(dofile, lexer_file or '')
+  local ok, lexer = xpcall(dofile, function(err)
+    print('Error: ' .. err)
+  end, lexer_file or '')
   if not ok then
+    print(string.format('error loading: %s', lexer_file))
     return nil
   end
-  if alt_name then lexer._NAME = alt_name end
+  if alt_name then
+    lexer._NAME = alt_name
+  end
 
   -- Create the initial maps for token names to style numbers and styles.
   local token_styles = {}
-  for i = 1, #default do token_styles[default[i]] = i - 1 end
-  for i = 1, #predefined do token_styles[predefined[i]] = i + 31 end
+  for i = 1, #default do 
+    token_styles[default[i]] = i - 1 
+  end
+  for i = 1, #predefined do 
+    token_styles[predefined[i]] = i + 31 
+  end
   lexer._TOKENSTYLES, lexer._numstyles = token_styles, #default
   lexer._EXTRASTYLES = {}
 
   -- If the lexer is a proxy (loads parent and child lexers to embed) and does
   -- not declare a parent, try and find one and use its rules.
-  if not lexer._rules and not lexer._lexer then lexer._lexer = parent_lexer end
+  if not lexer._rules and not lexer._lexer then
+    lexer._lexer = parent_lexer
+  end
 
   -- If the lexer is a proxy or a child that embedded itself, add its rules and
   -- styles to the parent lexer. Then set the parent to be the main lexer.
   if lexer._lexer then
     local l, _r, _s = lexer._lexer, lexer._rules, lexer._tokenstyles
-    if not l._tokenstyles then l._tokenstyles = {} end
+    if not l._tokenstyles then
+      l._tokenstyles = {}
+    end
     if _r then
       for i = 1, #_r do
         -- Prevent rule id clashes.
@@ -1100,7 +1144,9 @@ function M.load(name, alt_name, cache)
       end
     end
     if _s then
-      for token, style in pairs(_s) do l._tokenstyles[token] = style end
+      for token, style in pairs(_s) do
+        l._tokenstyles[token] = style 
+      end
     end
     lexer = l
   end
@@ -1117,13 +1163,16 @@ function M.load(name, alt_name, cache)
     end
     build_grammar(lexer)
   end
+
   -- Add the lexer's unique whitespace style.
   add_style(lexer, lexer._NAME..'_whitespace', M.STYLE_WHITESPACE)
 
   -- Process the lexer's fold symbols.
   if lexer._foldsymbols and lexer._foldsymbols._patterns then
     local patterns = lexer._foldsymbols._patterns
-    for i = 1, #patterns do patterns[i] = '()('..patterns[i]..')' end
+    for i = 1, #patterns do 
+      patterns[i] = '()('..patterns[i]..')' 
+    end
   end
 
   lexer.lex, lexer.fold = M.lex, M.fold
@@ -1134,8 +1183,10 @@ end
 ---
 -- Lexes a chunk of text *text* (that has an initial style number of
 -- *init_style*) with lexer *lexer*.
+--
 -- If *lexer* has a `_LEXBYLINE` flag set, the text is lexed one line at a time.
 -- Otherwise the text is lexed as a whole.
+--
 -- @param lexer The lexer object to lex with.
 -- @param text The text in the buffer to lex.
 -- @param init_style The current style. Multiple-language lexers use this to
@@ -1146,7 +1197,10 @@ end
 -- @return whether the lexing timed out.
 -- @name lex
 function M.lex(lexer, text, init_style, redrawtime_max, init)
-  if not lexer._GRAMMAR then return {M.DEFAULT, #text + 1} end
+  if not lexer._GRAMMAR then
+    return {M.DEFAULT, #text + 1}
+  end
+
   if not lexer._LEXBYLINE then
     -- For multilang lexers, build a new grammar whose initial_rule is the
     -- current language.
@@ -1161,6 +1215,7 @@ function M.lex(lexer, text, init_style, redrawtime_max, init)
         end
       end
     end
+
     local flag = {}
     return lpeg_match(lexer._GRAMMAR, text, init, os.clock(), redrawtime_max, flag), flag.timedout
   else
@@ -1171,12 +1226,15 @@ function M.lex(lexer, text, init_style, redrawtime_max, init)
         tokens[#tokens + 1] = line_tokens[i + 1] + offset
       end
     end
+
     local offset = 0
     local grammar = lexer._GRAMMAR
     local flag = {}
     for line in text:gmatch('[^\r\n]*\r?\n?') do
       local line_tokens = lpeg_match(grammar, line, init, os.clock(), redrawtime_max, flag)
-      if line_tokens then append(tokens, line_tokens, offset) end
+      if line_tokens then
+        append(tokens, line_tokens, offset)
+      end
       offset = offset + #line
       -- Use the default style to the end of the line if none was specified.
       if tokens[#tokens] ~= offset then
@@ -1189,22 +1247,26 @@ end
 
 ---
 -- Determines fold points in a chunk of text *text* with lexer *lexer*.
+--
 -- *text* starts at position *start_pos* on line number *start_line* with a
 -- beginning fold level of *start_level* in the buffer. If *lexer* has a `_fold`
 -- function or a `_foldsymbols` table, that field is used to perform folding.
 -- Otherwise, if *lexer* has a `_FOLDBYINDENTATION` field set, or if a
 -- `fold.by.indentation` property is set, folding by indentation is done.
+--
 -- @param lexer The lexer object to fold with.
 -- @param text The text in the buffer to fold.
--- @param start_pos The position in the buffer *text* starts at, starting at
---   zero.
+-- @param start_pos The position in the buffer *text* starts at, starting at zero.
 -- @param start_line The line number *text* starts on.
 -- @param start_level The fold level *text* starts on.
 -- @return table of fold levels.
 -- @name fold
 function M.fold(lexer, text, start_pos, start_line, start_level)
   local folds = {}
-  if text == '' then return folds end
+  if text == '' then
+    return folds
+  end
+
   local fold = M.property_int['fold'] > 0
   local FOLD_BASE = M.FOLD_BASE
   local FOLD_HEADER, FOLD_BLANK  = M.FOLD_HEADER, M.FOLD_BLANK
@@ -1222,16 +1284,22 @@ function M.fold(lexer, text, start_pos, start_line, start_level)
     local style_at, fold_level = M.style_at, M.fold_level
     local line_num, prev_level = start_line, start_level
     local current_level = prev_level
+
     for i = 1, #lines do
       local pos, line = lines[i][1], lines[i][2]
       if line ~= '' then
-        if fold_symbols_case_insensitive then line = line:lower() end
+        if fold_symbols_case_insensitive then
+      line = line:lower()
+    end
+
         local level_decreased = false
         for j = 1, #fold_symbols_patterns do
           for s, match in line:gmatch(fold_symbols_patterns[j]) do
             local symbols = fold_symbols[style_at[start_pos + pos + s - 1]]
             local l = symbols and symbols[match]
-            if type(l) == 'function' then l = l(text, pos, line, s, match) end
+            if type(l) == 'function' then
+        l = l(text, pos, line, s, match)
+      end
             if type(l) == 'number' then
               current_level = current_level + l
               if l < 0 and current_level < prev_level then
@@ -1242,23 +1310,29 @@ function M.fold(lexer, text, start_pos, start_line, start_level)
             end
           end
         end
+
         folds[line_num] = prev_level
         if current_level > prev_level then
           folds[line_num] = prev_level + FOLD_HEADER
-        elseif level_decreased and current_level == prev_level and
-               fold_zero_sum_lines then
+        elseif level_decreased and current_level == prev_level and fold_zero_sum_lines then
           if line_num > start_line then
             folds[line_num] = prev_level - 1 + FOLD_HEADER
           else
             -- Typing within a zero-sum line.
             local level = fold_level[line_num - 1] - 1
-            if level > FOLD_HEADER then level = level - FOLD_HEADER end
-            if level > FOLD_BLANK then level = level - FOLD_BLANK end
+            if level > FOLD_HEADER then
+        level = level - FOLD_HEADER
+      end
+            if level > FOLD_BLANK then
+        level = level - FOLD_BLANK
+      end
             folds[line_num] = level + FOLD_HEADER
             current_level = current_level + 1
           end
         end
-        if current_level < FOLD_BASE then current_level = FOLD_BASE end
+        if current_level < FOLD_BASE then
+      current_level = FOLD_BASE
+    end
         prev_level = current_level
       else
         folds[line_num] = prev_level + FOLD_BLANK
@@ -1280,7 +1354,9 @@ function M.fold(lexer, text, start_pos, start_line, start_level)
     local current_level = start_level
     for i = start_line - 1, 0, -1 do
       local level = M.fold_level[i]
-      if level >= FOLD_HEADER then level = level - FOLD_HEADER end
+      if level >= FOLD_HEADER then
+      level = level - FOLD_HEADER
+    end
       if level < FOLD_BLANK then
         local indent = M.indent_amount[i]
         if indentation[1] and indentation[1] > indent then
@@ -1359,8 +1435,10 @@ M.word = (M.alpha + '_') * (M.alnum + '_')^0
 ---
 -- Creates and returns a token pattern with token name *name* and pattern
 -- *patt*.
+--
 -- If *name* is not a predefined token name, its style must be defined in the
 -- lexer's `_tokenstyles` table.
+--
 -- @param name The name of token. If this name is not a predefined token name,
 --   then a style needs to be assiciated with it in the lexer's `_tokenstyles`
 --   table.
@@ -1376,12 +1454,14 @@ end
 ---
 -- Creates and returns a pattern that matches a range of text bounded by
 -- *chars* characters.
+--
 -- This is a convenience function for matching more complicated delimited ranges
 -- like strings with escape characters and balanced parentheses. *single_line*
 -- indicates whether or not the range must be on a single line, *no_escape*
 -- indicates whether or not to ignore '\' as an escape character, and *balanced*
 -- indicates whether or not to handle balanced ranges like parentheses and
 -- requires *chars* to be composed of two characters.
+--
 -- @param chars The character(s) that bound the matched range.
 -- @param single_line Optional flag indicating whether or not the range must be
 --   on a single line.
@@ -1420,6 +1500,7 @@ end
 ---
 -- Creates and returns a pattern that matches pattern *patt* only at the
 -- beginning of a line.
+--
 -- @param patt The LPeg pattern to match on the beginning of a line.
 -- @return pattern
 -- @usage local preproc = token(l.PREPROCESSOR, l.starts_line('#') *
@@ -1428,15 +1509,21 @@ end
 function M.starts_line(patt)
   return lpeg_Cmt(lpeg_C(patt), function(input, index, match, ...)
     local pos = index - #match
-    if pos == 1 then return index, ... end
+    if pos == 1 then
+    return index, ...
+  end
+
     local char = input:sub(pos - 1, pos - 1)
-    if char == '\n' or char == '\r' or char == '\f' then return index, ... end
+    if char == '\n' or char == '\r' or char == '\f' then
+    return index, ...
+  end
   end)
 end
 
 ---
 -- Creates and returns a pattern that verifies that string set *s* contains the
 -- first non-whitespace character behind the current match position.
+--
 -- @param s String character set like one passed to `lpeg.S()`.
 -- @return pattern
 -- @usage local regex = l.last_char_includes('+-*!%^&|=,([{') *
@@ -1445,18 +1532,27 @@ end
 function M.last_char_includes(s)
   s = '['..s:gsub('[-%%%[]', '%%%1')..']'
   return lpeg_P(function(input, index)
-    if index == 1 then return index end
+    if index == 1 then
+    return index
+  end
+
     local i = index
-    while input:sub(i - 1, i - 1):match('[ \t\r\n\f]') do i = i - 1 end
-    if input:sub(i - 1, i - 1):match(s) then return index end
+    while input:sub(i - 1, i - 1):match('[ \t\r\n\f]') do
+    i = i - 1
+  end
+    if input:sub(i - 1, i - 1):match(s) then
+    return index
+  end
   end)
 end
 
 ---
 -- Returns a pattern that matches a balanced range of text that starts with
 -- string *start_chars* and ends with string *end_chars*.
+--
 -- With single-character delimiters, this function is identical to
 -- `delimited_range(start_chars..end_chars, false, true, true)`.
+--
 -- @param start_chars The string starting a nested sequence.
 -- @param end_chars The string ending a nested sequence.
 -- @return pattern
@@ -1470,11 +1566,13 @@ end
 
 ---
 -- Creates and returns a pattern that matches any single word in list *words*.
+--
 -- Words consist of alphanumeric and underscore characters, as well as the
 -- characters in string set *word_chars*. *case_insensitive* indicates whether
 -- or not to ignore case when matching words.
 -- This is a convenience function for simplifying a set of ordered choice word
 -- patterns.
+--
 -- @param words A table of words.
 -- @param word_chars Optional string of additional characters considered to be
 --   part of a word. By default, word characters are alphanumerics and
@@ -1493,9 +1591,13 @@ function M.word_match(words, word_chars, case_insensitive)
     word_list[case_insensitive and words[i]:lower() or words[i]] = true
   end
   local chars = M.alnum + '_'
-  if word_chars then chars = chars + lpeg_S(word_chars) end
+  if word_chars then
+    chars = chars + lpeg_S(word_chars)
+  end
   return lpeg_Cmt(chars^1, function(input, index, word)
-    if case_insensitive then word = word:lower() end
+    if case_insensitive then
+    word = word:lower()
+  end
     return word_list[word] and index or nil
   end)
 end
@@ -1504,6 +1606,7 @@ end
 -- Embeds child lexer *child* in parent lexer *parent* using patterns
 -- *start_rule* and *end_rule*, which signal the beginning and end of the
 -- embedded lexer, respectively.
+--
 -- @param parent The parent lexer.
 -- @param child The child lexer.
 -- @param start_rule The pattern that signals the beginning of the embedded
@@ -1515,9 +1618,13 @@ end
 -- @name embed_lexer
 function M.embed_lexer(parent, child, start_rule, end_rule)
   -- Add child rules.
-  if not child._EMBEDDEDRULES then child._EMBEDDEDRULES = {} end
+  if not child._EMBEDDEDRULES then
+    child._EMBEDDEDRULES = {}
+  end
   if not child._RULES then -- creating a child lexer to be embedded
-    if not child._rules then error('Cannot embed language with no rules') end
+    if not child._rules then
+    error('Cannot embed language with no rules')
+  end
     for i = 1, #child._rules do
       add_rule(child, child._rules[i][1], child._rules[i][2])
     end
@@ -1527,11 +1634,16 @@ function M.embed_lexer(parent, child, start_rule, end_rule)
     token_rule = join_tokens(child),
     ['end_rule'] = end_rule
   }
-  if not parent._CHILDREN then parent._CHILDREN = {} end
+  if not parent._CHILDREN then
+    parent._CHILDREN = {}
+  end
+
   local children = parent._CHILDREN
   children[#children + 1] = child
   -- Add child styles.
-  if not parent._tokenstyles then parent._tokenstyles = {} end
+  if not parent._tokenstyles then
+    parent._tokenstyles = {}
+  end
   local tokenstyles = parent._tokenstyles
   tokenstyles[child._NAME..'_whitespace'] = M.STYLE_WHITESPACE
   if child._tokenstyles then
@@ -1540,10 +1652,15 @@ function M.embed_lexer(parent, child, start_rule, end_rule)
     end
   end
   -- Add child fold symbols.
-  if not parent._foldsymbols then parent._foldsymbols = {} end
+  if not parent._foldsymbols then
+    parent._foldsymbols = {}
+  end
   if child._foldsymbols then
     for token, symbols in pairs(child._foldsymbols) do
-      if not parent._foldsymbols[token] then parent._foldsymbols[token] = {} end
+      if not parent._foldsymbols[token] then
+      parent._foldsymbols[token] = {}
+    end
+
       for k, v in pairs(symbols) do
         if type(k) == 'number' then
           parent._foldsymbols[token][#parent._foldsymbols[token] + 1] = v
@@ -1558,7 +1675,9 @@ function M.embed_lexer(parent, child, start_rule, end_rule)
 end
 
 -- Determines if the previous line is a comment.
+--
 -- This is used for determining if the current comment line is a fold point.
+--
 -- @param prefix The prefix string defining a comment.
 -- @param text The text passed to a fold function.
 -- @param pos The pos passed to a fold function.
@@ -1566,14 +1685,23 @@ end
 -- @param s The s passed to a fold function.
 local function prev_line_is_comment(prefix, text, pos, line, s)
   local start = line:find('%S')
-  if start < s and not line:find(prefix, start, true) then return false end
+  if start < s and not line:find(prefix, start, true) then
+    return false
+  end
+
   local p = pos - 1
   if text:sub(p, p) == '\n' then
     p = p - 1
-    if text:sub(p, p) == '\r' then p = p - 1 end
+    if text:sub(p, p) == '\r' then
+    p = p - 1
+  end
     if text:sub(p, p) ~= '\n' then
-      while p > 1 and text:sub(p - 1, p - 1) ~= '\n' do p = p - 1 end
-      while text:sub(p, p):find('^[\t ]$') do p = p + 1 end
+      while p > 1 and text:sub(p - 1, p - 1) ~= '\n' do
+      p = p - 1
+    end
+      while text:sub(p, p):find('^[\t ]$') do 
+      p = p + 1 
+    end
       return text:sub(p, p + #prefix - 1) == prefix
     end
   end
@@ -1581,7 +1709,9 @@ local function prev_line_is_comment(prefix, text, pos, line, s)
 end
 
 -- Determines if the next line is a comment.
+--
 -- This is used for determining if the current comment line is a fold point.
+--
 -- @param prefix The prefix string defining a comment.
 -- @param text The text passed to a fold function.
 -- @param pos The pos passed to a fold function.
@@ -1591,7 +1721,9 @@ local function next_line_is_comment(prefix, text, pos, line, s)
   local p = text:find('\n', pos + s)
   if p then
     p = p + 1
-    while text:sub(p, p):find('^[\t ]$') do p = p + 1 end
+    while text:sub(p, p):find('^[\t ]$') do
+    p = p + 1 
+  end
     return text:sub(p, p + #prefix - 1) == prefix
   end
   return false
@@ -1600,6 +1732,7 @@ end
 ---
 -- Returns a fold function (to be used within the lexer's `_foldsymbols` table)
 -- that folds consecutive line comments that start with string *prefix*.
+--
 -- @param prefix The prefix string defining a line comment.
 -- @usage [l.COMMENT] = {['--'] = l.fold_line_comments('--')}
 -- @usage [l.COMMENT] = {['//'] = l.fold_line_comments('//')}
@@ -1607,12 +1740,22 @@ end
 function M.fold_line_comments(prefix)
   local property_int = M.property_int
   return function(text, pos, line, s)
-    if property_int['fold.line.comments'] == 0 then return 0 end
-    if s > 1 and line:match('^%s*()') < s then return 0 end
+    if property_int['fold.line.comments'] == 0 then
+    return 0
+  end
+
+    if s > 1 and line:match('^%s*()') < s then
+    return 0
+  end
+
     local prev_line_comment = prev_line_is_comment(prefix, text, pos, line, s)
     local next_line_comment = next_line_is_comment(prefix, text, pos, line, s)
-    if not prev_line_comment and next_line_comment then return 1 end
-    if prev_line_comment and not next_line_comment then return -1 end
+    if not prev_line_comment and next_line_comment then
+    return 1
+  end
+    if prev_line_comment and not next_line_comment then
+    return -1
+  end
     return 0
   end
 end
@@ -1687,3 +1830,5 @@ local lexer
 ]]
 
 return M
+
+-- vim:ts=2 et

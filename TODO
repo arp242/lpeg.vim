@@ -1,0 +1,2 @@
+- When using "/search" and it jumps to the next match there's a bit of a delay
+  in highlighting.

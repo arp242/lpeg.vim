@@ -244,7 +244,9 @@ M._fold = function(text, start_pos, start_line, start_level)
   return folds
 end
 
-l.property['fold.by.sphinx.convention'] = '0'
+
+-- Error: rest.lua:247: attempt to index a nil value (field 'property')
+-- l.property['fold.by.sphinx.convention'] = '0'
 
 --[[ Embedded languages.
 local bash = l.load('bash')

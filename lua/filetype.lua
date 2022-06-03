@@ -463,7 +463,9 @@ local filetypes = {
 	},
 }
 
-Detect = function()
+R = {}
+
+function R.Detect()
 	local buf  = vim.buffer()
 	local name = buf.fname
 
@@ -535,3 +537,5 @@ Detect = function()
 		return 'text', filetypes.text
 	end
 end
+
+return R

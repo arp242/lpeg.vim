@@ -1,17 +1,12 @@
 vim9script
 
-# This is an internal error.  If you can reproduce it, please send in a bug report.
-# E685: Internal error: text property above deleted line not found
-# E685: Internal error: text property below deleted line not found
+if exists('g:loaded_lpeg') | finish | endif
+g:loaded_lpeg = 1
 
-g:lpeg_path = expand('<sfile>:p:h')
-exe 'luafile' g:lpeg_path .. '/lpeg.lua'
+g:lpeg_path = expand('<sfile>:p:h:h')
+exe 'luafile' g:lpeg_path .. '/lua/lpeg.lua'
 
-def Error(msg: string, ...args: list<string>)
-	echohl ErrorMsg
-	echo call('printf', ['lpeg.vim: ' .. msg] + args)
-	echohl None
-enddef
+command -nargs=* -complete=customlist,Complete Lpeg Cmd(<f-args>)
 
 def Cmd(...splat: list<string>)
 	var cmd  = 'start'
@@ -21,17 +16,21 @@ def Cmd(...splat: list<string>)
 		args = args[1 :]
 	endif
 
-	if cmd == 'start'
-		lua LPEG.Start()
+	if cmd == 'times'
+		lua print(LPEG.times())
+	elseif cmd == 'parse'
+		lua LPEG.apply(true)
+	elseif cmd == 'start' || cmd == 'autostart'
+		exe printf('lua LPEG.Start(%s)', cmd == 'start')
+		if !exists('b:lpeg_syntax')
+			return
+		endif
+
+		b:lpeg_last = [line('w0'), line('w$')]
 		augroup lpeg.vim
 			au!
-			# We can optimize this a bit more, as apply() will just re-highlight
-			# the entire visible screen. Textobjects are "smart" and will move
-			# if the buffer changes, so this really isn't needed.
-			#
-			# Overal, this seems "fast enough" for now.
-			au TextChanged,TextChangedI <buffer> lua LPEG.apply(nil, false,
-				\ vim.fn.line('w0'), vim.fn.line('w$'))
+			au TextChanged,TextChangedI <buffer> lua LPEG.apply(false)
+			au SafeState                <buffer> SafeState()
 		augroup end
 	elseif cmd == 'stop'
 		if !exists('b:lpeg_syntax')
@@ -51,12 +50,6 @@ def Cmd(...splat: list<string>)
 
 		&syntax = &filetype
 		unlet b:lpeg_syntax
-	elseif cmd == 'times'
-		lua print(LPEG.times())
-	elseif cmd == 'parse'
-		exe printf('lua LPEG.apply(nil, true, %d, %d)',
-			(len(args) >= 1 ? args[0]->str2nr() : 1),
-			(len(args) >= 2 ? args[1]->str2nr() : line('$')))
 	else
 		Error('unknown command: %s', cmd)
 	endif
@@ -67,6 +60,19 @@ def Complete(lead: string, cmdlind: string, pos: number): list<string>
 		->filter((_, v) => strpart(v, 0, len(lead)) == lead)
 enddef
 
-command -nargs=* -complete=customlist,Complete Lpeg Cmd(<f-args>)
+def SafeState()
+	var vis = [line('w0'), line('w$')]
+	if vis != b:lpeg_last
+		lua LPEG.apply(false)
+	endif
+	b:lpeg_last = vis
+enddef
+
+def Error(msg: string, ...args: list<string>)
+	echohl ErrorMsg
+	echo call('printf', ['lpeg.vim: ' .. msg] + args)
+	echohl None
+enddef
+
 
 defcompile
