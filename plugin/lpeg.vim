@@ -6,7 +6,7 @@ g:loaded_lpeg = 1
 g:lpeg_path = expand('<sfile>:p:h:h')
 exe 'luafile' g:lpeg_path .. '/lua/lpeg.lua'
 
-command -nargs=* -complete=customlist,Complete Lpeg Cmd(<f-args>)
+command -nargs=* -complete=customlist,Complete LPeg Cmd(<f-args>)
 
 def Cmd(...splat: list<string>)
 	var cmd  = 'start'
@@ -34,7 +34,7 @@ def Cmd(...splat: list<string>)
 		augroup end
 	elseif cmd == 'stop'
 		if !exists('b:lpeg_syntax')
-			Error('Lpeg not enabled')
+			Error('LPeg not enabled')
 			return
 		endif
 

@@ -1,4 +1,4 @@
-Lpeg.vim adds syntax highlighting to Vim with [LPeg].
+LPeg.vim adds syntax highlighting to Vim with [LPeg].
 
 This replaces the built-in regexp-based syntax highlighting the PEG parser from
 LPeg. You can find a [detailed rationale] on the why of it below, and see the
@@ -41,7 +41,7 @@ Usage
 -----
 After installation nothing is done by default at the moment, to enable it use:
 
-    :Lpeg
+    :LPeg
 
 Because the lexer names don't map 1-to-1 with Vim filetypes (some in Vim are not
 supported, some in LPeg are not in Vim, and some have a different name) this
@@ -55,17 +55,17 @@ The name of the lexer is stored in the `b:lpeg_syntax` variable:
 
 You can disable it again with:
 
-    :Lpeg stop
+    :LPeg stop
 
 To automatically start it, use:
 
     augroup lpeg-autostart
         au!
         " Only for Go and Python
-        au Filetype go,python :Lpeg
+        au Filetype go,python :LPeg
 
         " Or for all filetypes.
-        " au Filetype * :Lpeg
+        " au Filetype * :LPeg
     augroup end
 
 Lexers are looked up in the `lexer` directory in `runtimepath`; this is
@@ -133,7 +133,7 @@ types` will list all the types that are defined for the current file, and just
 Finally, there are two commands useful for debugging and development; `times`
 shows the last 100 parse times:
 
-    :Lpeg times
+    :LPeg times
     apply      1-649    → 32.75ms
     apply  19850-20418  → 6.30ms
     apply  19850-20417  → 6.27ms
@@ -143,7 +143,7 @@ The numbers are the start-end byte offsets of what was being parsed.
 With `parse` you can manually run parse and see what the LPeg library makes of
 it:
 
-    :Lpeg parse
+    :LPeg parse
     name             byte pos      line:col          text
     type             1-3           1:1-3             │int│
     whitespace       4             1:4               │ │

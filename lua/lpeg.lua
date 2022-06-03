@@ -45,7 +45,7 @@ local syntaxes = {}
 -- parses the entire buffer, and sets up autocmds to process edits.
 --
 -- TODO: allow passing an explicit filetype:
---   :Lpeg python
+--   :LPeg python
 function LPEG.Start()
 	local name, filetype = ftdetect.Detect()
 	if name == nil then
