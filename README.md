@@ -1,9 +1,9 @@
 LPeg.vim adds syntax highlighting to Vim with [LPeg].
 
 This replaces the built-in regexp-based syntax highlighting the PEG parser from
-LPeg. You can find a [detailed rationale] on the why of it below, and see the
-[Future work] section for things that aren't yet implemented and some
-limitations.
+LPeg. You can find a [detailed rationale](#rationale-and-history) on the why of
+it below, and see the [Future work](#future-work) section for things that aren't
+yet implemented and some limitations.
 
 This is heavily based on the LPeg integration in the [vis] editor, which in turn
 is heavily based on [Scintillua].
@@ -198,7 +198,7 @@ be done:
   I spent some time on the Go lexer to improve it, so that one is about on-par
   (or actually, better).
 
-- Modifying lexers from after/ and/or autocmd should be possible.
+- Modifying lexers from `after/` directory and/or autocmds should be possible.
 
 - Provide text objects and folding based on the parsing info. This information
   is actually in a lot of the lexers, we just don't use it yet.
