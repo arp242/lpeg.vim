@@ -8,8 +8,9 @@ limitations.
 This is heavily based on the LPeg integration in the [vis] editor, which in turn
 is heavily based on [Scintillua].
 
-Right now this is a prototype, but it seems to work well. I've been using it for
-the last few days in real-world usage, and haven't found any problems thus far.
+This is pretty experimental; I wrote this last year, got a bit bored with it,
+and haven't worked much on it since. It seems to work fairly decently, but
+probably quite a few rough edges.
 
 Installation
 ------------
